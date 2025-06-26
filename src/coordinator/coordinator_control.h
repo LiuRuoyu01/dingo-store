@@ -250,6 +250,11 @@ class CoordinatorControl : public MetaControl {
                             const pb::common::IndexParameter &index_parameter, std::vector<int64_t> &store_ids,
                             std::vector<pb::common::Store> &selected_stores_for_regions);
 
+  butil::Status SelectStoreBalanceReplicaOne(pb::common::StoreType store_type, int32_t replica_num,
+                                      const std::string &resource_tag, int64_t region_id,
+                                      const pb::common::IndexParameter &index_parameter,
+                                      std::vector<pb::common::Store> &selected_stores_for_regions);
+
   butil::Status CheckRegionPrefix(const std::string &start_key, const std::string &end_key);
 
   butil::Status CreateShadowRegion(const std::string &region_name, pb::common::RegionType region_type,
@@ -417,8 +422,8 @@ class CoordinatorControl : public MetaControl {
 
   // br restore index meta
   butil::Status RestoreIndexMeta(int64_t schema_id, int64_t index_id,
-                            const pb::meta::TableDefinition &new_table_definition_in,
-                            pb::coordinator_internal::MetaIncrement &meta_increment);
+                                 const pb::meta::TableDefinition &new_table_definition_in,
+                                 pb::coordinator_internal::MetaIncrement &meta_increment);
 
   // generate table with part ids
   butil::Status GenerateTableWithPartIds(int64_t schema_id, const pb::meta::TableWithPartCount &count,
