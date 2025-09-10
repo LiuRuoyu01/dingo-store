@@ -344,4 +344,34 @@ std::string ConfigHelper::GetBlockCacheValue() {
   return (num <= 0) ? Constant::kBlockCacheDefaultValue : std::to_string(num);
 }
 
+std::string ConfigHelper::GetEnableBlobFilesValue() {
+  auto config = ConfigManager::GetInstance().GetRoleConfig();
+  if (config == nullptr) {
+    return Constant::kEnableBlobFilesDefaultValue;
+  }
+
+  std::string enable_blob_files = config->GetString("store.enable_blob_files");
+  return (enable_blob_files == "false") ? "false" : Constant::kEnableBlobFilesDefaultValue;
+}
+
+std::string ConfigHelper::GetMinBlobSizeValue() {
+  auto config = ConfigManager::GetInstance().GetRoleConfig();
+  if (config == nullptr) {
+    return Constant::kMinBlobSizeDefaultValue;
+  }
+
+  int64_t num = config->GetInt64("store.min_blob_size");
+  return (num <= 0) ? Constant::kMinBlobSizeDefaultValue : std::to_string(num);
+}
+
+std::string ConfigHelper::GetBlobCacheValue() {
+  auto config = ConfigManager::GetInstance().GetRoleConfig();
+  if (config == nullptr) {
+    return Constant::kBlobCacheDefaultValue;
+  }
+
+  int64_t num = config->GetInt64("store.blob_cache_size");
+  return (num <= 0) ? Constant::kBlobCacheDefaultValue : std::to_string(num);
+}
+
 }  // namespace dingodb
