@@ -128,6 +128,18 @@ class Constant {
   inline static const std::string kTargetFileSizeBaseDefaultValue = "67108864";  // 64MB
   inline static const std::string kMaxBytesForLevelMultiplier = "max_bytes_for_level_multiplier";
   inline static const std::string kMaxBytesForLevelMultiplierDefaultValue = "10";
+  inline static const std::string kEnableBlobFiles = "enable_blob_files";
+  inline static const std::string kEnableBlobFilesDefaultValue = "true";
+  inline static const std::string kMinBlobSize = "min_blob_size";
+  inline static const std::string kMinBlobSizeDefaultValue = "1024";  // 1KB
+  inline static const std::string kBlobFileSize = "blob_file_size";
+  inline static const std::string kBlobFileSizeDefaultValue = "268435456";  // 256MB
+  inline static const std::string kEnableBlobGarbageCollection = "enable_blob_garbage_collection";
+  inline static const std::string kEnableBlobGarbageCollectionDefaultValue = "true";
+  inline static const std::string kBlobGarbageCollectionAgeCutoff = "blob_garbage_collection_age_cutoff";
+  inline static const std::string kBlobGarbageCollectionAgeCutoffDefaultValue = "0.3";
+  inline static const std::string kBlobCache = "blob_cache";
+  inline static const std::string kBlobCacheDefaultValue = "1073741824";  // 1GB
 
   static const int kRocksdbBackgroundThreadNumDefault = 16;
   static const int kStatsDumpPeriodSecDefault = 600;

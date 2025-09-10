@@ -61,6 +61,9 @@ class ConfigHelper {
   static float GetMergeKeysRatio();
 
   static std::string GetBlockCacheValue();
+  static std::string GetMinBlobSizeValue();
+  static std::string GetEnableBlobFilesValue();
+  static std::string GetBlobCacheValue();
 };
 
 }  // namespace dingodb
