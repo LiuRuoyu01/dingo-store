@@ -283,6 +283,36 @@ find_package(backtrace REQUIRED)
 
 # provoided by rocksdb cmake
 find_package(RocksDB REQUIRED)
+message("Using RocksDB ${RocksDB_VERSION}, include_dir:${RocksDB_INCLUDE_DIR}")
+
+find_path(TITAN_INCLUDE_DIR
+NAMES titan/db.h   # 根据您代码中实际包含的头文件名修改
+PATHS /usr/include # 明确指定搜索路径
+NO_DEFAULT_PATH    # 只在指定路径中找，不去系统默认路径找
+)
+# 2. 手动查找 Titan 的库文件
+find_library(TITAN_LIBRARY
+NAMES titan
+PATHS /usr/lib/x86_64-linux-gnu
+NO_DEFAULT_PATH
+)
+
+# 3. 检查是否成功找到
+if(TITAN_INCLUDE_DIR AND TITAN_LIBRARY)
+message(STATUS "Found Titan: includes at ${TITAN_INCLUDE_DIR}, library at ${TITAN_LIBRARY}")
+# 创建一个导入目标，方便后续链接，这样使用起来和find_package找到的目标类似
+add_library(titan::titan STATIC IMPORTED)
+set_target_properties(titan::titan PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${TITAN_INCLUDE_DIR}"
+    IMPORTED_LOCATION "${TITAN_LIBRARY}"
+)
+target_link_libraries(titan::titan INTERFACE RocksDB::rocksdb)
+else()
+message(FATAL_ERROR "Titan not found. Please check the installation.
+    TITAN_INCLUDE_DIR: ${TITAN_INCLUDE_DIR}
+    TITAN_LIBRARY: ${TITAN_LIBRARY}")
+endif()
+
 
 include(yaml-cpp)
 include(ftxui)
@@ -355,6 +385,7 @@ set(DYNAMIC_LIB
     protobuf::libprotobuf
     gflags
     leveldb::leveldb
+    titan::titan
     RocksDB::rocksdb
     Snappy::snappy
     fmt::fmt

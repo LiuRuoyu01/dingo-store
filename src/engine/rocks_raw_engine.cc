@@ -49,6 +49,7 @@
 #include "rocksdb/rate_limiter.h"
 #include "rocksdb/table.h"
 #include "rocksdb/write_batch.h"
+#include "titan/db.h"
 
 namespace dingodb {
 DEFINE_bool(enable_rocksdb_sync, false, "enable rocksdb sync");
@@ -194,7 +195,7 @@ std::shared_ptr<RocksRawEngine> Checkpoint::GetRawEngine() {
   return raw_engine;
 }
 
-std::shared_ptr<rocksdb::DB> Checkpoint::GetDB() { return GetRawEngine()->GetDB(); }
+std::shared_ptr<rocksdb::titandb::TitanDB> Checkpoint::GetDB() { return GetRawEngine()->GetDB(); }
 std::vector<rocks::ColumnFamilyPtr> Checkpoint::GetColumnFamilies(const std::vector<std::string>& cf_names) {
   return GetRawEngine()->GetColumnFamilies(cf_names);
 }
@@ -237,7 +238,7 @@ butil::Status Checkpoint::Create(const std::string& dirpath, const std::vector<s
 
   status = checkpoint->CreateCheckpoint(dirpath);
   if (!status.ok()) {
-    GetDB()->EnableFileDeletions();
+    GetDB()->EnableFileDeletions(true);
     DINGO_LOG(ERROR) << fmt::format("[rocksdb] export column family checkpoint failed, error: {}.", status.ToString());
     delete checkpoint;
     return butil::Status(status.code(), status.ToString());
@@ -252,7 +253,7 @@ butil::Status Checkpoint::Create(const std::string& dirpath, const std::vector<s
     meta_datas.push_back(meta_data);
   }
 
-  status = GetDB()->EnableFileDeletions();
+  status = GetDB()->EnableFileDeletions(true);
   if (!status.ok()) {
     DINGO_LOG(ERROR) << fmt::format("[rocksdb] enable file deletion failed, error: {}.", status.ToString());
     return butil::Status(status.code(), status.ToString());
@@ -324,7 +325,7 @@ std::shared_ptr<RocksRawEngine> Reader::GetRawEngine() {
 
 dingodb::SnapshotPtr Reader::GetSnapshot() { return GetRawEngine()->GetSnapshot(); }
 
-std::shared_ptr<rocksdb::DB> Reader::GetDB() { return GetRawEngine()->GetDB(); }
+std::shared_ptr<rocksdb::titandb::TitanDB> Reader::GetDB() { return GetRawEngine()->GetDB(); }
 
 ColumnFamilyPtr Reader::GetColumnFamily(const std::string& cf_name) { return GetRawEngine()->GetColumnFamily(cf_name); }
 
@@ -485,7 +486,7 @@ std::shared_ptr<RocksRawEngine> Writer::GetRawEngine() {
   return raw_engine;
 }
 
-std::shared_ptr<rocksdb::DB> Writer::GetDB() { return GetRawEngine()->GetDB(); }
+std::shared_ptr<rocksdb::titandb::TitanDB> Writer::GetDB() { return GetRawEngine()->GetDB(); }
 
 ColumnFamilyPtr Writer::GetColumnFamily(const std::string& cf_name) { return GetRawEngine()->GetColumnFamily(cf_name); }
 
@@ -647,7 +648,8 @@ butil::Status Writer::KvBatchPutAndDelete(
   rocksdb::Status s = GetDB()->Write(write_options, &batch);
   if (!s.ok()) {
     DINGO_LOG(ERROR) << fmt::format("[rocksdb] write failed, error: {}", s.ToString());
-    return butil::Status(pb::error::EINTERNAL, fmt::format("rocksdb::DB::Write failed : {}", s.ToString()));
+    return butil::Status(pb::error::EINTERNAL,
+                         fmt::format("rocksdb::titandb::TitanDB::Write failed : {}", s.ToString()));
   }
 
   return butil::Status::OK();
@@ -833,9 +835,10 @@ bool CastValue(std::string value, std::string& dst_value) {
 }
 
 // set cf config
-static rocksdb::ColumnFamilyOptions GenRocksDBColumnFamilyOptions(rocks::ColumnFamilyPtr column_family) {
-  rocksdb::ColumnFamilyOptions family_options;
+static rocksdb::titandb::TitanCFOptions GenRocksDBColumnFamilyOptions(rocks::ColumnFamilyPtr column_family) {
+  rocksdb::titandb::TitanCFOptions family_options;
   rocksdb::BlockBasedTableOptions table_options;
+  family_options.min_blob_size = 1024;
 
   // block_size
   CastValue(column_family->GetConfItem(Constant::kBlockSize), table_options.block_size);
@@ -898,30 +901,30 @@ static rocksdb::ColumnFamilyOptions GenRocksDBColumnFamilyOptions(rocks::ColumnF
   return family_options;
 }
 
-rocksdb::DB* RocksRawEngine::InitDB(const std::string& db_path, rocks::ColumnFamilyMap& column_families) {
-  // Cast ColumnFamily to rocksdb::ColumnFamilyOptions
-  std::vector<rocksdb::ColumnFamilyDescriptor> column_family_descs;
+rocksdb::titandb::TitanDB* RocksRawEngine::InitDB(const std::string& db_path, rocks::ColumnFamilyMap& column_families) {
+  // Cast ColumnFamily to rocksdb::titandb::TitanCFOptions
+  std::vector<rocksdb::titandb::TitanCFDescriptor> column_family_descs;
   for (auto [cf_name, column_family] : column_families) {
     column_family->Dump();
-    rocksdb::ColumnFamilyOptions family_options = GenRocksDBColumnFamilyOptions(column_family);
-    column_family_descs.push_back(rocksdb::ColumnFamilyDescriptor(cf_name, family_options));
+    rocksdb::titandb::TitanCFOptions family_options = GenRocksDBColumnFamilyOptions(column_family);
+    column_family_descs.push_back(rocksdb::titandb::TitanCFDescriptor(cf_name, family_options));
   }
 
-  rocksdb::DBOptions db_options;
+  rocksdb::titandb::TitanOptions db_options;
   db_options.create_if_missing = true;
   db_options.create_missing_column_families = true;
   db_options.max_background_jobs = ConfigHelper::GetRocksDBBackgroundThreadNum();
   db_options.max_subcompactions = db_options.max_background_jobs / 4 * 3;
   db_options.stats_dump_period_sec = ConfigHelper::GetRocksDBStatsDumpPeriodSec();
   db_options.use_direct_io_for_flush_and_compaction = true;
-  db_options.statistics=rocksdb::CreateDBStatistics();
+  // db_options.statistics=rocksdb::CreateDBStatistics();
 
   DINGO_LOG(INFO) << fmt::format("[rocksdb] config max_background_jobs({}) max_subcompactions({})",
                                  db_options.max_background_jobs, db_options.max_subcompactions);
 
-  rocksdb::DB* db;
+  rocksdb::titandb::TitanDB* db;
   std::vector<rocksdb::ColumnFamilyHandle*> family_handles;
-  rocksdb::Status s = rocksdb::DB::Open(db_options, db_path, column_family_descs, &family_handles, &db);
+  rocksdb::Status s = rocksdb::titandb::TitanDB::Open(db_options, db_path, column_family_descs, &family_handles, &db);
   if (!s.ok()) {
     DINGO_LOG(ERROR) << fmt::format("[rocksdb] open db failed, error: {}", s.ToString());
     return nullptr;
@@ -957,7 +960,7 @@ bool RocksRawEngine::Init(std::shared_ptr<Config> config, const std::vector<std:
   auto column_families = GenColumnFamilyByDefaultConfig(cf_names);
   SetColumnFamilyCustomConfig(config, column_families);
 
-  rocksdb::DB* db = InitDB(db_path_, column_families);
+  rocksdb::titandb::TitanDB* db = InitDB(db_path_, column_families);
   if (db == nullptr) {
     DINGO_LOG(ERROR) << fmt::format("[rocksdb] open failed, path: {}", db_path_);
     return false;
@@ -983,7 +986,7 @@ pb::common::RawEngine RocksRawEngine::GetRawEngineType() { return pb::common::Ra
 
 std::string RocksRawEngine::DbPath() { return db_path_; }
 
-std::shared_ptr<rocksdb::DB> RocksRawEngine::GetDB() { return db_; }
+std::shared_ptr<rocksdb::titandb::TitanDB> RocksRawEngine::GetDB() { return db_; }
 
 rocks::ColumnFamilyPtr RocksRawEngine::GetDefaultColumnFamily() { return GetColumnFamily(Constant::kStoreDataCF); }
 
@@ -1049,7 +1052,7 @@ butil::Status RocksRawEngine::MergeCheckpointFiles(const std::string& path, cons
     column_families.push_back(rocksdb::ColumnFamilyDescriptor(cf_name, rocksdb::ColumnFamilyOptions()));
   }
 
-  // Due to delete other region sst file, so need repair db, or rocksdb::DB::Open will fail.
+  // Due to delete other region sst file, so need repair db, or rocksdb::titandb::TitanDB::Open will fail.
   auto status = rocksdb::RepairDB(path, options, column_families);
   if (!status.ok()) {
     DINGO_LOG(WARNING) << fmt::format("[rocksdb] repair db failed, path: {} error: {}", path, status.ToString());

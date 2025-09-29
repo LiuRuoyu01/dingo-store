@@ -34,6 +34,7 @@
 #include "rocksdb/slice.h"
 #include "rocksdb/slice_transform.h"
 #include "rocksdb/utilities/checkpoint.h"
+#include "titan/db.h"
 
 namespace dingodb {
 
@@ -118,7 +119,7 @@ using IteratorPtr = std::shared_ptr<Iterator>;
 
 class Snapshot : public dingodb::Snapshot {
  public:
-  explicit Snapshot(const rocksdb::Snapshot* snapshot, std::shared_ptr<rocksdb::DB> db)
+  explicit Snapshot(const rocksdb::Snapshot* snapshot, std::shared_ptr<rocksdb::titandb::TitanDB> db)
       : snapshot_(snapshot), db_(db) {}
   ~Snapshot() override {
     if (db_ != nullptr && snapshot_ != nullptr) {
@@ -131,7 +132,7 @@ class Snapshot : public dingodb::Snapshot {
 
  private:
   const rocksdb::Snapshot* snapshot_;
-  std::shared_ptr<rocksdb::DB> db_;
+  std::shared_ptr<rocksdb::titandb::TitanDB> db_;
 };
 using SnapshotPtr = std::shared_ptr<Snapshot>;
 
@@ -171,7 +172,7 @@ class Checkpoint : public RawEngine::Checkpoint {
 
  private:
   std::shared_ptr<RocksRawEngine> GetRawEngine();
-  std::shared_ptr<rocksdb::DB> GetDB();
+  std::shared_ptr<rocksdb::titandb::TitanDB> GetDB();
   std::vector<rocks::ColumnFamilyPtr> GetColumnFamilies(const std::vector<std::string>& cf_names);
 
   std::weak_ptr<RocksRawEngine> raw_engine_;
@@ -205,7 +206,7 @@ class Reader : public RawEngine::Reader {
  private:
   std::shared_ptr<RocksRawEngine> GetRawEngine();
   dingodb::SnapshotPtr GetSnapshot();
-  std::shared_ptr<rocksdb::DB> GetDB();
+  std::shared_ptr<rocksdb::titandb::TitanDB> GetDB();
   ColumnFamilyPtr GetColumnFamily(const std::string& cf_name);
   ColumnFamilyPtr GetDefaultColumnFamily();
 
@@ -243,7 +244,7 @@ class Writer : public RawEngine::Writer {
 
  private:
   std::shared_ptr<RocksRawEngine> GetRawEngine();
-  std::shared_ptr<rocksdb::DB> GetDB();
+  std::shared_ptr<rocksdb::titandb::TitanDB> GetDB();
   ColumnFamilyPtr GetColumnFamily(const std::string& cf_name);
   ColumnFamilyPtr GetDefaultColumnFamily();
 
@@ -296,15 +297,15 @@ class RocksRawEngine : public RawEngine {
   friend rocks::Writer;
   friend rocks::Checkpoint;
 
-  rocksdb::DB* InitDB(const std::string& db_path, rocks::ColumnFamilyMap& column_families);
-  std::shared_ptr<rocksdb::DB> GetDB();
+  rocksdb::titandb::TitanDB* InitDB(const std::string& db_path, rocks::ColumnFamilyMap& column_families);
+  std::shared_ptr<rocksdb::titandb::TitanDB> GetDB();
 
   rocks::ColumnFamilyPtr GetDefaultColumnFamily();
   rocks::ColumnFamilyPtr GetColumnFamily(const std::string& cf_name);
   std::vector<rocks::ColumnFamilyPtr> GetColumnFamilies(const std::vector<std::string>& cf_names);
 
   std::string db_path_;
-  std::shared_ptr<rocksdb::DB> db_;
+  std::shared_ptr<rocksdb::titandb::TitanDB> db_;
   rocks::ColumnFamilyMap column_families_;
   std::shared_ptr<rocksdb::RateLimiter> rate_limiter_;
 
